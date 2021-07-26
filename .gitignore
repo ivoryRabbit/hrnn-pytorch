@@ -1,4 +1,10 @@
+__pycache__
+
 venv
 venv/
 
 .idea
+
+data/dense*
+
+.DS_Store
