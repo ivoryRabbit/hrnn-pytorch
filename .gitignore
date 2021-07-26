@@ -6,5 +6,6 @@ venv/
 .idea
 
 data/dense*
+checkpoint/*
 
 .DS_Store
