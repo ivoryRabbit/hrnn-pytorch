@@ -41,7 +41,6 @@ def main():
 
     # environment
     parser.add_argument("--model_name", default="HRNN-TOP1.pt", type=str)
-    parser.add_argument("--load_model", default=None, type=str, help="use pre-trained model")
     parser.add_argument("--data_dir", default="data", type=str)
     parser.add_argument("--load_dir", default="model", type=str)
 

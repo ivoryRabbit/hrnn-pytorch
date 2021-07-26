@@ -16,7 +16,6 @@ if __name__ == "__main__":
 
     # environment
     parser.add_argument("--model_name", default="HRNN-TOP1.pt", type=str)
-    parser.add_argument("--load_model", default=None,  type=str, help="use pre-trained model")
     parser.add_argument("--data_dir", default="data", type=str)
     parser.add_argument("--save_dir", default="model", type=str)
     parser.add_argument("--checkpoint_dir", default="checkpoint", type=str)
