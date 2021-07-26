@@ -1,11 +1,13 @@
 __pycache__
 
-venv
+# virtualenv
 venv/
 
+# IDE files
 .idea
 
-data/dense*
-checkpoint/*
+# preprocessed data
+data/*.hdf
 
+# mac
 .DS_Store
