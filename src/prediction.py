@@ -76,6 +76,46 @@ class SessionDataLoader():
                 end[idx] = session_offsets[session_idx_arr[max_iter] + 1]
 
 
+def predict_batch(dataset, model, batch_size, loss_function, eval_k, device):
+    from tqdm import tqdm
+    from src.dataset import DataLoader
+    from src.evaluation import evaluate
+
+    model.eval()
+    losses = []
+    metrics = {}
+
+    data_loader = DataLoader(dataset, batch_size, -1)
+
+    user_repr = model.init_hidden(batch_size)
+    session_repr = model.init_hidden(batch_size)
+
+    with torch.no_grad():
+        for input, output, session_start, user_start in tqdm(data_loader):
+            input = input.to(device)
+            output = output.to(device)
+
+            session_mask = model.get_mask(session_start, batch_size)
+            user_mask = model.get_mask(user_start, batch_size)
+
+            score, session_repr, user_repr = model(input, session_repr, session_mask, user_repr,
+                                                   user_mask)
+            sampled_score = score[:, output.view(-1)]
+
+            loss = loss_function(sampled_score)
+            eval_metrics = evaluate(score, output, k=eval_k)
+
+            losses.append(loss.item())
+
+            for metric, value in eval_metrics.items():
+                metrics[metric] = metrics.get(metric, []) + [value]
+
+    mean_losses = np.mean(losses)
+    mean_metrics = {metric: np.mean(values) for metric, values in metrics.items()}
+
+    return mean_losses, mean_metrics
+
+
 def inference(user_id, model, df, device, item_map, idx_map, user_key="user_id", eval_k=20):
     user_info = df[df[user_key] == user_id]
     user_dataset = SessionDataset(user_info, item_map)

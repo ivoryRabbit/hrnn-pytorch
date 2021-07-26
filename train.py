@@ -60,28 +60,28 @@ if __name__ == "__main__":
     parser.add_argument("--eval_k", default=25, type=int, help="how many items you recommend")
 
     # get the arguments
-    args = parser.parse_args() # with '.ipynb', use parser.parse_args([])
+    # with '.ipynb', use parser.parse_args([])
+    args = parser.parse_args()
 
     # check gpu environment
     use_cuda = torch.cuda.is_available()
 
+    # fix seed
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
-
 
     # data
     train_data_path = os.path.join(args.data_dir, args.train_data)
     valid_data_path = os.path.join(args.data_dir, args.valid_data)
     test_data_path = os.path.join(args.data_dir, args.test_data)
+    save_dir = os.path.join(args.save_dir, args.model_name)
 
     # check gpu environment
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    load_dir = save_dir = os.path.join(args.save_dir, args.model_name)
-
-    train_df = pd.read_hdf("data/dense_train_sessions.hdf", "train")
-    valid_df = pd.read_hdf("data/dense_valid_sessions.hdf", "valid")
+    train_df = pd.read_hdf(train_data_path, "train")
+    valid_df = pd.read_hdf(valid_data_path, "valid")
 
     train_dataset = Dataset(train_df)
     item_map = train_dataset.item_map
