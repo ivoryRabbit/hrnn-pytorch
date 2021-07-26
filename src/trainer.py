@@ -4,8 +4,8 @@ import torch
 import time
 from tqdm import tqdm
 
-from dataset import DataLoader
-from evaluation import evaluate
+from src.dataset import DataLoader
+from src.evaluation import evaluate
 
 
 class EarlyStopping(object):

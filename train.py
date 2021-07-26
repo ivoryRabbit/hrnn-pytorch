@@ -44,8 +44,8 @@ if __name__ == "__main__":
 
     # model
     parser.add_argument("--embedding_dim", default=-1, type=int, help="if positive, using item embedding")
-    parser.add_argument("--hidden_dim", default=256, type=int)
-    parser.add_argument("--n_layers", default=1, type=int, help="try to implement, multiple layers do not improve performance")
+    parser.add_argument("--hidden_dim", default=128, type=int)
+    parser.add_argument("--n_layers", default=1, type=int, help="having implemented, multiple layers do not improve performance")
     parser.add_argument("--hidden_act", default="tanh", type=str)
     parser.add_argument("--final_act", default="tanh", type=str)
     parser.add_argument("--dropout_init", default=0.1, type=float)

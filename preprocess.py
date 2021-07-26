@@ -69,17 +69,18 @@ if __name__ == "__main__":
     parser.add_argument("--data_dir", default="data", type=str)
 
     # data
-    parser.add_argument("--raw_data", default="ml-10m.csv", type=str)
+    parser.add_argument("--raw_data", default="ml-1m.csv", type=str)
     parser.add_argument("--user_key", default="user_id", type=str)
     parser.add_argument("--item_key", default="item_id", type=str)
     parser.add_argument("--session_key", default="session_id", type=str)
     parser.add_argument("--time_key", default="timestamp", type=str)
 
     # preprocess
-    parser.add_argument("--min_session_interval", default=2*60*60, type=int)
+    parser.add_argument("--min_session_interval", default=30*60, type=int, help="1 hour = 60 min * 60 sec")
     parser.add_argument("--min_item_pop", default=10, type=int)
-    parser.add_argument("--min_session_len", default=3, type=int)
+    parser.add_argument("--min_session_len", default=2, type=int)
     parser.add_argument("--session_per_user", default=(5, 199), type=Tuple[int])
+    parser.add_argument("--split_session", default=1, type=int)
 
     # get the arguments
     args = parser.parse_args()  # with '.ipynb', use parser.parse_args([])
@@ -95,11 +96,14 @@ if __name__ == "__main__":
     pop_items = item_pop.index[item_pop >= args.min_item_pop]
     dense_inter_df = inter_df[inter_df[args.item_key].isin(pop_items)]
 
+    session_length = dense_inter_df.groupby(args.session_key)[args.time_key].transform("count")
+    dense_inter_df = dense_inter_df[session_length >= args.min_session_len]
+
     sess_per_user = dense_inter_df.groupby(args.user_key)[args.session_key].transform("nunique")
     dense_inter_df = dense_inter_df[sess_per_user.between(*args.session_per_user)]
 
-    train_sessions, test_sessions = split_by_session(dense_inter_df, args.min_session_len)
-    train_sessions, valid_sessions = split_by_session(train_sessions, args.min_session_len)
+    train_sessions, test_sessions = split_by_session(dense_inter_df, args.split_session)
+    train_sessions, valid_sessions = split_by_session(train_sessions, args.split_session)
 
     train_sessions.to_hdf("data/dense_train_sessions.hdf", "train")
     valid_sessions.to_hdf("data/dense_valid_sessions.hdf", "valid")

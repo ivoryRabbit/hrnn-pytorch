@@ -3,3 +3,4 @@ pandas==1.1.5
 numpy==1.19.5
 argparse==1.1
 tqdm==4.48.2
+tables==3.6.1
