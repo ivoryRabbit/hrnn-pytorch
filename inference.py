@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 import torch
 import pandas as pd
@@ -36,7 +37,7 @@ def bootstrap(df, user_key="user_id", session_key="session_id", time_key="timest
     return df.reset_index(drop=True)
 
 
-def main():
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # environment
@@ -86,8 +87,5 @@ def main():
     bootstrap_df = bootstrap_df[bootstrap_df[args.user_key].isin(test_user_ids)]
     bootstrap_df = pd.concat([bootstrap_df, test_df], axis=0)
 
-    return inference(args.user_id, model, bootstrap_df, device, item_map, idx_map, eval_k=args.eval_k)
-
-
-if __name__ == "__main__":
-    main()
+    res = inference(args.user_id, model, bootstrap_df, device, item_map, idx_map, eval_k=args.eval_k)
+    sys.exit(res)
