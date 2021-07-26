@@ -133,8 +133,9 @@ def inference(user_id, model, df, device, item_map, idx_map, user_key="user_id",
             session_mask = model.get_mask(session_start, 1)
             user_mask = model.get_mask([], 1)
 
-            score, session_repr, user_repr = model(item, session_repr, session_mask, user_repr,
-                                                   user_mask)
+            score, session_repr, user_repr = model(
+                item, session_repr, session_mask, user_repr, user_mask
+            )
 
     _, indices = torch.topk(score[-1], eval_k)
     indices = indices.cpu().numpy()

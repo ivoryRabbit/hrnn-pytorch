@@ -87,7 +87,7 @@ def main():
     bootstrap_df = bootstrap_df[bootstrap_df[args.user_key].isin(test_user_ids)]
     bootstrap_df = pd.concat([bootstrap_df, test_df], axis=0)
 
-    return inference(args.user_id, model, bootstrap_df, device, item_map, idx_map, args.eval_k)
+    return inference(args.user_id, model, bootstrap_df, device, item_map, idx_map, eval_k=args.eval_k)
 
 
 if __name__ == "__main__":
