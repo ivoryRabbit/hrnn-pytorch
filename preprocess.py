@@ -1,5 +1,8 @@
+import os
+import argparse
 import pandas as pd
 from pandas import DataFrame
+from typing import Tuple
 
 
 def attach_sessions(df: DataFrame, threshold: int = 30*60):
@@ -60,27 +63,43 @@ def split_by_days(df: DataFrame, n_day: int, min_session_size: int = 2):
 
 
 if __name__ == "__main__":
-    SESSION_THRESHOLD = 2 * 60 * 60
-    ITEM_POP_THRESHOLD = 20
-    SESSION_LENGTH_THRESHOLD = 3
+    parser = argparse.ArgumentParser()
+
+    # environment
+    parser.add_argument("--data_dir", default="data", type=str)
+
+    # data
+    parser.add_argument("--raw_data", default="ml-10m.csv", type=str)
+    parser.add_argument("--user_key", default="user_id", type=str)
+    parser.add_argument("--item_key", default="item_id", type=str)
+    parser.add_argument("--session_key", default="session_id", type=str)
+    parser.add_argument("--time_key", default="timestamp", type=str)
+
+    # preprocess
+    parser.add_argument("--min_session_interval", default=2*60*60, type=int)
+    parser.add_argument("--min_item_pop", default=10, type=int)
+    parser.add_argument("--min_session_len", default=3, type=int)
+    parser.add_argument("--session_per_user", default=(5, 199), type=Tuple[int])
+
+    # get the arguments
+    args = parser.parse_args()  # with '.ipynb', use parser.parse_args([])
+
+    interaction_dir = os.path.join(args.data_dir, args.raw_data)
 
     # load interaction data
-    inter_df = pd.read_csv("data/rb-10m.csv")
-    inter_df = attach_sessions(inter_df, SESSION_THRESHOLD)
-    inter_df = inter_df.drop_duplicates(subset=["item_id", "session_id"], keep="first")
+    inter_df = pd.read_csv(interaction_dir)
+    inter_df = attach_sessions(inter_df, args.min_session_interval)
+    inter_df = inter_df.drop_duplicates(subset=[args.item_key, args.session_key], keep="first")
 
-    item_pop = inter_df["item_id"].value_counts()
-    pop_items = item_pop.index[item_pop >= ITEM_POP_THRESHOLD]
-    dense_inter_df = inter_df[inter_df["item_id"].isin(pop_items)]
+    item_pop = inter_df[args.item_key].value_counts()
+    pop_items = item_pop.index[item_pop >= args.min_item_pop]
+    dense_inter_df = inter_df[inter_df[args.item_key].isin(pop_items)]
 
-    session_length = dense_inter_df.groupby("session_id")["timestamp"].transform("count")
-    dense_inter_df = dense_inter_df[session_length >= SESSION_LENGTH_THRESHOLD]
+    sess_per_user = dense_inter_df.groupby(args.user_key)[args.session_key].transform("nunique")
+    dense_inter_df = dense_inter_df[sess_per_user.between(*args.session_per_user)]
 
-    sess_per_user = dense_inter_df.groupby("user_id")["session_id"].transform("nunique")
-    dense_inter_df = dense_inter_df[sess_per_user.between(5, 199)]
-
-    train_sessions, test_sessions = split_by_session(dense_inter_df, 1)
-    train_sessions, valid_sessions = split_by_session(train_sessions, 1)
+    train_sessions, test_sessions = split_by_session(dense_inter_df, args.min_session_len)
+    train_sessions, valid_sessions = split_by_session(train_sessions, args.min_session_len)
 
     train_sessions.to_hdf("data/dense_train_sessions.hdf", "train")
     valid_sessions.to_hdf("data/dense_valid_sessions.hdf", "valid")
