@@ -8,6 +8,7 @@ venv/
 
 # preprocessed data
 data/*.hdf
+checkpoint/*.pt
 
 # mac
 .DS_Store
