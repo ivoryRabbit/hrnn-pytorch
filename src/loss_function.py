@@ -3,10 +3,9 @@ from torch import nn
 
 
 class LossFunction(nn.Module):
-    def __init__(self, loss_type="TOP1", use_cuda=False):
+    def __init__(self, loss_type="TOP1"):
         super(LossFunction, self).__init__()
         self.loss_type = loss_type
-        self.use_cuda = use_cuda
 
         if loss_type == "CrossEntropy":
             self._loss_fn = CrossEntropyLoss()
