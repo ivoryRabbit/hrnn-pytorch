@@ -29,7 +29,6 @@ if __name__ == "__main__":
     parser.add_argument("--item_key", default="item_id", type=str)
     parser.add_argument("--session_key", default="session_id", type=str)
     parser.add_argument("--time_key", default="timestamp", type=str)
-    parser.add_argument("--value_key", default="event_value", type=str)
     parser.add_argument("--n_samples", default=-1, type=int)
 
     # learning
