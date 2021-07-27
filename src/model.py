@@ -5,18 +5,18 @@ from torch.nn.functional import one_hot
 
 class HGRU4REC(nn.Module):
     def __init__(
-            self,
-            device,
-            input_size,
-            output_size,
-            hidden_dim,
-            hidden_act="tanh",
-            final_act="tanh",
-            dropout_init=0.1,
-            dropout_user=0.2,
-            dropout_session=0.2,
-            embedding_dim=-1,
-            fft_all=False
+        self,
+        device,
+        input_size,
+        output_size,
+        hidden_dim,
+        hidden_act="tanh",
+        final_act="tanh",
+        dropout_init=0.1,
+        dropout_user=0.2,
+        dropout_session=0.2,
+        embedding_dim=-1,
+        fft_all=False
     ):
         super(HGRU4REC, self).__init__()
         # arguments
