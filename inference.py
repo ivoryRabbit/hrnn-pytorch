@@ -15,7 +15,7 @@ def load_model(load_dir, device):
         device=device,
         **model_state["args"]
     )
-    model.load_state_dict(model_state["model"])
+    model.load_state_dict(model_state["trained"])
     return model
 
 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     # environment
     parser.add_argument("--model_name", default="HRNN-TOP1.pt", type=str)
     parser.add_argument("--data_dir", default="data", type=str)
-    parser.add_argument("--load_dir", default="model", type=str)
+    parser.add_argument("--load_dir", default="trained", type=str)
 
     # data
     parser.add_argument("--train_data", default="dense_train_sessions.hdf", type=str)

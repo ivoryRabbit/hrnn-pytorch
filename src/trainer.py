@@ -45,7 +45,7 @@ class EarlyStopping(object):
     def save_checkpoint(self, eval_loss, checkpoint):
         if self.verbose:
             print(f"Validation loss decreased ({self.best_eval_loss:.5f} --> {eval_loss:.5f})")
-            print("Saving model...")
+            print("Saving trained...")
 
         torch.save(checkpoint, self.checkpoint_path)
         self.best_eval_loss = eval_loss
@@ -107,7 +107,7 @@ class Trainer(object):
                 break
 
         checkpoint = torch.load(checkpoint_path)
-        self.model.load_state_dict(checkpoint["model"])
+        self.model.load_state_dict(checkpoint["trained"])
         print(f"time: {time.time() - self.start_time:0.1f} sec")
         return self.model, train_losses, eval_losses
 

@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # environment
     parser.add_argument("--model_name", default="HRNN-TOP1.pt", type=str)
     parser.add_argument("--data_dir", default="data", type=str)
-    parser.add_argument("--save_dir", default="model", type=str)
+    parser.add_argument("--save_dir", default="trained", type=str)
     parser.add_argument("--checkpoint_dir", default="checkpoint", type=str)
 
     # data
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     parser.add_argument("--eps", default=1e-6, type=float)
     parser.add_argument("--patience", default=5, type=int, help="early stopping patience")
 
-    # model
+    # trained
     parser.add_argument("--embedding_dim", default=-1, type=int, help="if positive, using item embedding")
     parser.add_argument("--hidden_dim", default=128, type=int)
     parser.add_argument("--n_layers", default=1, type=int, help="having implemented, multiple layers do not improve performance")
