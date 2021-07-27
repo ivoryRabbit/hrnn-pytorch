@@ -4,12 +4,12 @@ import torch
 
 class SessionDataset(object):
     def __init__(
-            self,
-            df,
-            item_map=None,
-            session_key="session_id",
-            item_key="item_id",
-            time_key="timestamp",
+        self,
+        df,
+        item_map=None,
+        session_key="session_id",
+        item_key="item_id",
+        time_key="timestamp",
     ):
         self.df = df
         self.session_key = session_key
@@ -38,8 +38,12 @@ class SessionDataset(object):
     def session_idx_arr(self):
         return np.arange(self.df[self.session_key].nunique())
 
+    @property
+    def item_ids(self):
+        return self.df[self.item_key].unique()
 
-class SessionDataLoader():
+
+class SessionDataLoader(object):
     def __init__(self, dataset, batch_size=50):
         self.dataset = dataset
         self.batch_size = batch_size
@@ -64,7 +68,7 @@ class SessionDataLoader():
                 input = torch.LongTensor(idx_input)
                 yield input, mask
 
-            start = start + (min_interval - 1)
+            start += (min_interval - 1)
             mask = np.arange(len(iters))[(end - start) <= 1]
             for idx in mask:
                 max_iter += 1
