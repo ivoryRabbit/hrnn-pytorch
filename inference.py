@@ -7,6 +7,7 @@ import pandas as pd
 from src.dataset import Dataset
 from src.model import HGRU4REC
 from src.prediction import inference
+from src.coldstart import bestseller
 
 
 def load_model(load_dir, device):
@@ -15,7 +16,7 @@ def load_model(load_dir, device):
         device=device,
         **model_state["args"]
     )
-    model.load_state_dict(model_state["trained"])
+    model.load_state_dict(model_state["model"])
     return model
 
 
@@ -87,5 +88,8 @@ if __name__ == "__main__":
     bootstrap_df = bootstrap_df[bootstrap_df[args.user_key].isin(test_user_ids)]
     bootstrap_df = pd.concat([bootstrap_df, test_df], axis=0)
 
-    res = inference(args.user_id, model, bootstrap_df, device, item_map, idx_map, eval_k=args.eval_k)
+    try:
+        res = inference(args.user_id, model, bootstrap_df, device, item_map, idx_map, eval_k=args.eval_k)
+    except:
+        res = bestseller(precede_df, eval_k=args.eval_k)
     sys.exit(res)
