@@ -1,6 +1,6 @@
 import argparse
 import os
-from typing import Tuple
+from typing import Optional, Tuple
 
 
 def get_args():
@@ -8,7 +8,7 @@ def get_args():
 
     # data
     parser.add_argument("--interaction", default="ml-1m.csv", type=str)
-    parser.add_argument("--item_meta", default="item_meta.csv", type=str)
+    parser.add_argument("--item_meta", default=None, type=Optional[str])
     parser.add_argument("--user_key", default="user_id", type=str)
     parser.add_argument("--item_key", default="item_id", type=str)
     parser.add_argument("--time_key", default="timestamp", type=str)
@@ -63,7 +63,7 @@ def set_env(data_root="data", save_root="trained", checkpoint_root="checkpoint")
 
     # raw data
     os.environ["interaction_dir"] = os.path.join(data_root, args.interaction)
-    os.environ["item_meta_dir"] = os.path.join(data_root, args.item_meta)
+    os.environ["item_meta_dir"] = args.item_meta or os.path.join(data_root, args.item_meta)
 
     # data
     os.environ["train_dir"] = os.path.join(data_root, "train_data.hdf")
