@@ -1,9 +1,13 @@
-def bestseller(df, user_key="user_id", item_key="item_id", eval_k=20):
-    df = df[[user_key, item_key]].drop_duplicates()
-    pop = (
-        df
-        .groupby(item_key, as_index=False)[user_key]
-        .agg({"pop": "count"})
-        .sort_values("pop", ascending=False)
-    )
-    return pop[item_key].values[:eval_k]
+class ColdStart(object):
+    def __init__(self, precede_df):
+        self.precede_df = precede_df
+
+    def bestseller(self, size: int = 10):
+        pop = (
+            self.precede_df
+            .drop_duplicates(subset=["user_id", "item_id"])
+            .groupby("item_id", as_index=False)["user_id"]
+            .agg({"pop": "nunique"})
+            .sort_values("pop", ascending=False)
+        )
+        return pop["item_id"].values[:size]

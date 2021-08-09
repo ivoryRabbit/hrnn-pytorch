@@ -13,9 +13,8 @@ class HGRU4REC(nn.Module):
         hidden_act="tanh",
         final_act="tanh",
         dropout_init=0.1,
-        dropout_user=0.2,
-        dropout_session=0.2,
-        embedding_dim=-1,
+        dropout_user=0.1,
+        dropout_session=0.1,
         fft_all=False
     ):
         super(HGRU4REC, self).__init__()
@@ -29,7 +28,6 @@ class HGRU4REC(nn.Module):
         self.dropout_init = dropout_init
         self.dropout_user = dropout_user
         self.dropout_session = dropout_session
-        self.embedding_dim = embedding_dim
         self.fft_all = fft_all
 
         # layers
@@ -45,23 +43,15 @@ class HGRU4REC(nn.Module):
         self.dropout_user_layer = nn.Dropout(self.dropout_user)
         self.dropout_session_layer = nn.Dropout(self.dropout_session)
 
-        if self.embedding_dim == -1:
-            self.session_gru = nn.GRUCell(self.input_size, self.hidden_dim)
-        else:
-            self.look_up = nn.Embedding(self.input_size, self.embedding_dim)
-            self.session_gru = nn.GRUCell(self.embedding_dim, self.hidden_dim)
+        self.session_gru = nn.GRUCell(self.input_size, self.hidden_dim)
         self.user_gru = nn.GRUCell(self.hidden_dim, self.hidden_dim)
 
         if self.fft_all:
-            self.fft = nn.Linear(self.hidden_dim, self.input_size, bias=False)
+            self.fft = nn.Linear(self.hidden_dim, self.output_size, bias=False)
         self = self.to(self.device)
 
-    def forward(self, input, session_repr, session_mask, user_repr, user_mask):
-        if self.embedding_dim == -1:
-            embedded = self.onehot_encode(input)
-        else:
-            embedded = input.unsqueeze(0)
-            embedded = self.look_up(embedded)
+    def forward(self, inputs, session_repr, session_mask, user_repr, user_mask):
+        embedded = self.onehot_encode(inputs)
 
         # update user representative only when a new session updates
         user_repr_updt = self.user_gru(session_repr, user_repr)
@@ -82,11 +72,11 @@ class HGRU4REC(nn.Module):
         session_repr = self.session_gru(embedded, session_repr)
         session_repr = self.dropout_session_layer(session_repr)
 
-        score = self.s2o(session_repr)
+        score = self.s2o(session_repr) # (batch_size, output_size)
         return score, session_repr, user_repr
 
-    def onehot_encode(self, input):
-        encoded = one_hot(input, num_classes=self.input_size).float()
+    def onehot_encode(self, inputs):
+        encoded = one_hot(inputs, num_classes=self.input_size).float()
         return encoded.to(self.device)
 
     def get_mask(self, mask_idx, batch_size):
@@ -124,7 +114,6 @@ class HGRU4REC(nn.Module):
                 dropout_init=self.dropout_init,
                 dropout_user=self.dropout_user,
                 dropout_session=self.dropout_session,
-                embedding_dim=self.embedding_dim,
                 fft_all=self.fft_all,
             )
         )

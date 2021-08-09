@@ -24,5 +24,5 @@ python train.py --n_epochs 10 --batch_size 50
 
 ## Inference
 ```bash
-python inference.py --user_id 32
+python recommend.py --user_id 32
 ```
