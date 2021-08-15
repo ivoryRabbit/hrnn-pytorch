@@ -81,6 +81,7 @@ class Recommend(object):
         )
 
     def recommend(self, user_id: int, k: int = 20):
+        assert user_id >= 0, "user id must be non-negative"
         try:
             score = inference(user_id, self.bootstrapped_test_df, self.model, self.device)
             purchased = self.filter.filter_express(user_id)
@@ -88,6 +89,6 @@ class Recommend(object):
             _, indices = torch.topk(score, k)
             indices = indices.cpu().numpy()
             res = np.vectorize(self.to_id_map.get)(indices)
-        except:
+        except UnboundLocalError:
             res = self.cold_start.bestseller(size=k)
         return res.tolist()
