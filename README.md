@@ -31,3 +31,6 @@ python train.py --n_epochs 10 --batch_size 50
 ```bash
 python main.py --user_id 2 --eval_k 10
 ```
+
+## Reference
+- [original code for the paper with Theano](https://github.com/mquad/hgru4rec)
