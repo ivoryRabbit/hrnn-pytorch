@@ -27,7 +27,7 @@ python preprocess.py --interactioin ml-1m.csv
 python train.py --n_epochs 10 --batch_size 50
 ```
 
-## Inference
+## Recommend
 ```bash
-python recommend.py --user_id 2 --eval_k 10
+python main.py --user_id 2 --eval_k 10
 ```
