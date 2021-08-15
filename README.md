@@ -7,6 +7,11 @@
 ## Dataset
 [ml-1m](https://grouplens.org/datasets/movielens/1m/)
 
+## Clone
+```bash
+git clone git@github.com:ivoryRabbit/hrnn-pytorch.git
+```
+
 ## Requirements
 ```bash
 pip install -r requirements.txt
@@ -14,7 +19,7 @@ pip install -r requirements.txt
 
 ## Preprocess
 ```bash
-python preprocess.py --raw_data ml-1m.csv
+python preprocess.py --interactioin ml-1m.csv
 ```
 
 ## Training
@@ -24,5 +29,5 @@ python train.py --n_epochs 10 --batch_size 50
 
 ## Inference
 ```bash
-python recommend.py --user_id 32
+python recommend.py --user_id 2 --eval_k 10
 ```
