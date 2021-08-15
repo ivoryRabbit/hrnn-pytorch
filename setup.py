@@ -53,6 +53,7 @@ def get_args():
 
     # inference
     parser.add_argument("--eval_k", default=25, type=int, help="how many items you recommend")
+    parser.add_argument("--user_id", type=int, help="user id")
 
     args = parser.parse_args()
     return args
@@ -63,7 +64,8 @@ def set_env(data_root="data", save_root="trained", checkpoint_root="checkpoint")
 
     # raw data
     os.environ["interaction_dir"] = os.path.join(data_root, args.interaction)
-    os.environ["item_meta_dir"] = args.item_meta or os.path.join(data_root, args.item_meta)
+    if args.item_meta:
+        os.environ["item_meta_dir"] = os.path.join(data_root, args.item_meta)
 
     # data
     os.environ["train_dir"] = os.path.join(data_root, "train_data.hdf")

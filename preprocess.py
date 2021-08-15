@@ -100,12 +100,12 @@ if __name__ == "__main__":
         user_key=args.user_key, item_key=args.item_key, time_key=args.time_key,
     )
 
-    if os.environ["item_meta_dir"]:
+    try:
         item_df = read_raw_data(
             os.environ["item_meta_dir"],
             user_key=args.user_key, item_key=args.item_key, time_key=args.time_key,
         )
-    else:
+    except KeyError:
         item_df = pd.DataFrame({"item_id": inter_df["item_id"].unique()})
 
     # drop sparse data

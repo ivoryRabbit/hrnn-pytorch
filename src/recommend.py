@@ -33,7 +33,8 @@ class Recommend(object):
         model.load_state_dict(model_state["model"])
         return model
 
-    def _get_precede(self):
+    @staticmethod
+    def _get_precede():
         train_df = pd.read_hdf(os.environ["train_dir"], "train")
         valid_df = pd.read_hdf(os.environ["valid_dir"], "valid")
         return pd.concat([train_df, valid_df], axis=0)
