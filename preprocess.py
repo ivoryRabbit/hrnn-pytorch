@@ -2,93 +2,88 @@ import os
 import pandas as pd
 from pandas import DataFrame
 from typing import Tuple
-from setup import set_env
+from argparser import set_env
 
 
 def read_raw_data(data_dir: str, user_key: str, item_key: str, time_key: str) -> DataFrame:
+    df = pd.read_csv(data_dir, converters={"timestamp": lambda t: int(t)})
     name_map = {
         user_key: "user_id",
         item_key: "item_id",
         time_key: "timestamp",
     }
-    return pd.read_csv(data_dir).rename(columns=name_map)
+    return df.rename(columns=name_map).filter(items=["user_id", "item_id", "timestamp"])
 
 
-def attach_sessions(df: DataFrame, threshold: int = 30*60) -> DataFrame:
+def attach_session(df: DataFrame, threshold: int = 30 * 60) -> DataFrame:
     df = df.sort_values(by=["user_id", "timestamp"]).reset_index(drop=True)
-    split_session = df["timestamp"].diff() > threshold
 
-    new_user = df["user_id"] != df["user_id"].shift()
-    new_session = new_user | split_session
+    split_user = df["user_id"] != df["user_id"].shift()
+    split_time = df["timestamp"].diff() > threshold
 
-    return (
-        df
-        .assign(session_id=new_session.cumsum())
-        .drop_duplicates(subset=["item_id", "session_id"], keep="first")
-    )
+    session = split_user | split_time
+    return df.assign(session_id=session.cumsum())
+
+
+def drop_duplicate(df: DataFrame) -> DataFrame:
+    return df.drop_duplicates(subset=["user_id", "item_id", "session_id"], keep="last")
+
+
+def drop_sparse_item(df: DataFrame, min_item_pop: int = 5) -> DataFrame:
+    item_pop = df.groupby("item_id")["timestamp"].count()
+
+    fine_item = item_pop.index[item_pop >= min_item_pop]
+    return df[df["item_id"].isin(fine_item)]
+
+
+def drop_sparse_session(df: DataFrame, min_session_size: int = 3) -> DataFrame:
+    session_size = df.groupby("session_id")["item_id"].count()
+
+    fine_session = session_size.index[session_size >= min_session_size]
+    return df[df["session_id"].isin(fine_session)]
+
+
+def drop_sparse_user(df: DataFrame, min_session_len: int = 5) -> DataFrame:
+    session_len = df.groupby("user_id")["session_id"].count()
+
+    fine_user = session_len.index[session_len >= min_session_len]
+    return df[df["user_id"].isin(fine_user)]
+
+
+def drop_outlier(df: DataFrame, history_len_percentile: Tuple[float, float]) -> DataFrame:
+    user_history_len = inter_df.groupby("user_id")["item_id"].count()
+
+    min_len, max_len = map(user_history_len.quantile, history_len_percentile)
+
+    fine_user = user_history_len.index[user_history_len.between(min_len, max_len)]
+    return df[df["user_id"].isin(fine_user)]
+
+
+def split_by_session(df: DataFrame) -> Tuple[DataFrame, DataFrame]:
+    last_session = df.groupby("user_id")["session_id"].transform("last")
+
+    train = df[df["session_id"] != last_session]
+    test = df[df["session_id"] == last_session]
+
+    session_len = train.groupby("session_id")["timestamp"].count()
+    trainable_session = session_len.index[session_len > 1]
+    train = train[train["session_id"].isin(trainable_session)]
+
+    predictable_item = train["item_id"].unique()
+    test = test[test["item_id"].isin(predictable_item)]
+
+    train, test = map(lambda df: df.reset_index(drop=True), (train, test))
+    return train, test
 
 
 def attach_item_idx(df: DataFrame) -> DataFrame:
     item_ids = df["item_id"].unique()
-    to_idx_map = {Id: idx for idx, Id in enumerate(item_ids)}
-    return df.assign(item_idx = lambda df: df["item_id"].map(to_idx_map))
-
-
-def split_by_session(df: DataFrame, min_session_size: int = 2) -> Tuple[DataFrame, DataFrame]:
-    last_sessions = df.groupby("user_id")["session_id"].transform("last")
-
-    train = df[df["session_id"] != last_sessions]
-    test = df[df["session_id"] == last_sessions]
-
-    test = test[test["item_id"].isin(train["item_id"].unique())]
-
-    good_sessions = test.groupby("session_id")["timestamp"].transform("count")
-    test = test[good_sessions >= min_session_size]
-    return train, test
-
-
-def split_by_timestamp(df: DataFrame, size: float = 0.8) -> Tuple[DataFrame, DataFrame]:
-    timeorder = df.groupby("user_id")["timestamp"].rank(method="first", ascending=True)
-    seen_cnts = df.groupby("user_id")["item_id"].transform("count")
-
-    train = df[timeorder < seen_cnts * size]
-    test = df[timeorder >= seen_cnts * size]
-
-    test = test[test["item_id"].isin(train["item_id"].unique())]
-    return train, test
-
-
-def split_by_days(df: DataFrame, n_day: int, min_session_size: int = 2) -> Tuple[DataFrame, DataFrame]:
-    DAY = 24 * 60 * 60
-
-    end_time = df["timestamp"].max()
-    test_start = end_time - n_day * DAY
-
-    session_starts = df.groupby("session_id")["timestamp"].transform("min")
-
-    train = df[session_starts < test_start]
-    test = df[session_starts >= test_start]
-
-    test = test[test["item_id"].isin(train["item_id"].unique())]
-
-    good_sessions = test.groupby("session_id")["timestamp"].transform("count")
-    test = test[good_sessions >= min_session_size]
-    return train, test
-
-
-def drop_sparse_item(df: DataFrame, min_item_pop: int = 10) -> DataFrame:
-    item_pop = df.groupby("item_id")["timestamp"].transform("nunique")
-    return df[item_pop >= min_item_pop]
-
-
-def drop_sparse_session(df: DataFrame, min_session_len: int = 5) -> DataFrame:
-    session_len = df.groupby("session_id")["timestamp"].transform("nunique")
-    return df[session_len >= min_session_len]
-
-
-def drop_sparse_user(df: DataFrame, session_per_user: Tuple[int]) -> DataFrame:
-    sess_per_user = df.groupby("user_id")["session_id"].transform("nunique")
-    return df[sess_per_user.between(*session_per_user)]
+    to_idx_map = {item: idx for idx, item in enumerate(item_ids)}
+    return (
+        df
+        .assign(item_idx=lambda df: df["item_id"].map(to_idx_map))
+        .reset_index(drop=True)
+    )
 
 
 if __name__ == "__main__":
@@ -100,31 +95,49 @@ if __name__ == "__main__":
         user_key=args.user_key, item_key=args.item_key, time_key=args.time_key,
     )
 
+    # refine session data
+    inter_df = attach_session(inter_df, args.min_session_interval)
+    inter_df = drop_duplicate(inter_df)
+
+    # drop sparse data
+    parsed_inter_df = drop_sparse_item(inter_df, args.min_item_pop)
+    parsed_inter_df = drop_sparse_session(parsed_inter_df, args.min_session_size)
+    parsed_inter_df = drop_sparse_user(parsed_inter_df, args.min_session_len)
+    # parsed_inter_df = drop_outlier(inter_df, args.history_len_percentile)
+
+    # split train, valid, test (leave-one-out w.r.t. session)
+    train_df, test_df = split_by_session(parsed_inter_df)
+    train_df, valid_df = split_by_session(train_df)
+
     try:
-        item_df = read_raw_data(
+        item_meta_df = read_raw_data(
             os.environ["item_meta_dir"],
             user_key=args.user_key, item_key=args.item_key, time_key=args.time_key,
         )
     except KeyError:
-        item_df = pd.DataFrame({"item_id": inter_df["item_id"].unique()})
+        item_meta_df = pd.DataFrame({"item_id": inter_df["item_id"].unique()})
 
-    # drop sparse data
-    inter_df = attach_sessions(inter_df, args.min_session_interval)
-    inter_df = drop_sparse_item(inter_df, args.min_item_pop)
-    inter_df = drop_sparse_session(inter_df, args.min_session_len)
-    inter_df = drop_sparse_user(inter_df, args.session_per_user)
+    # create trainable item meta data
+    item_for_train_df = (
+        train_df
+        .groupby("item_id", as_index=False)[["timestamp"]]
+        .agg("max")
+    )
+    item_for_train_df = (
+        item_for_train_df
+        .merge(item_meta_df, on="item_id", how="inner")
+        .sort_values(by="timestamp")
+        .drop(columns="timestamp")
+    )
+    item_for_train_df = attach_item_idx(item_for_train_df)
 
-    # split train, valid, test (leave-one-out w.r.t. session)
-    train_df, test_df = split_by_session(inter_df, args.leave_out_session)
-    train_df, valid_df = split_by_session(train_df, args.leave_out_session)
-
-    # drop non-exist items
-    items = inter_df.item_id.unique()
-    item_df = item_df[item_df["item_id"].isin(items)].reset_index(drop=True)
-    item_df = attach_item_idx(item_df)
+    # get precede data with sessions
+    trainable_items = item_for_train_df["item_id"].unique()
+    inter_df = inter_df[inter_df["item_id"].isin(trainable_items)]
 
     # save data
-    train_df.to_hdf(os.environ["train_dir"], "train")
-    valid_df.to_hdf(os.environ["valid_dir"], "valid")
-    test_df.to_hdf(os.environ["test_dir"], "test")
-    item_df.to_csv(os.environ["item_dir"], index=False)
+    inter_df.to_csv(os.environ["inter_dir"], index=False)
+    train_df.to_csv(os.environ["train_dir"], index=False)
+    valid_df.to_csv(os.environ["valid_dir"], index=False)
+    test_df.to_csv(os.environ["test_dir"], index=False)
+    item_for_train_df.to_csv(os.environ["item_dir"], index=False)

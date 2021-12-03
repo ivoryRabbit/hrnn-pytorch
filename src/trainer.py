@@ -3,70 +3,33 @@ import torch
 import time
 from tqdm import tqdm
 
-from src.dataset import DataLoader
-from src.evaluation import evaluate
-
-
-class EarlyStopping(object):
-    def __init__(self, args, checkpoint_dir: str, mode="min"):
-        self.patience = args.patience
-        self.verbose = args.verbose
-        self.delta = args.delta
-        self.checkpoint_dir = checkpoint_dir
-
-        assert mode in ("min", "max"), "mode should be 'min' or 'max'"
-        self.mode = mode
-        self.best_eval_loss = np.Inf if mode == "min" else -np.Inf
-
-        self.counter = 0
-        self.best_score = None
-        self.early_stop = False
-
-    def __call__(self, eval_loss, checkpoint):
-        score = -eval_loss if self.mode == "min" else eval_loss
-
-        if self.best_score is None:
-            self.best_score = score
-            self.save_checkpoint(eval_loss, checkpoint)
-
-        elif score < self.best_score + self.delta:
-            self.counter += 1
-            print(f"EarlyStopping counter: {self.counter} out of {self.patience}")
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            self.best_score = score
-            self.save_checkpoint(eval_loss, checkpoint)
-            self.counter = 0
-        return self.checkpoint_dir
-
-    def save_checkpoint(self, eval_loss, checkpoint):
-        if self.verbose:
-            print(f"Validation loss decreased ({self.best_eval_loss:.5f} --> {eval_loss:.5f})")
-            print("Save trained model...")
-
-        torch.save(checkpoint, self.checkpoint_dir)
-        self.best_eval_loss = eval_loss
-
 
 class Trainer(object):
-    def __init__(self, args, model, train_data, valid_data, optimizer, loss_function,
-                 early_stopping, device):
+    def __init__(
+        self,
+        args,
+        model,
+        train_loader,
+        valid_loader,
+        optimizer,
+        loss_function,
+        metric,
+        early_stopping,
+    ):
         self.args = args
         self.model = model
-        self.train_data = train_data
-        self.valid_data = valid_data
+        self.train_loader = train_loader
+        self.valid_loader = valid_loader
         self.optimizer = optimizer
         self.loss_function = loss_function
+        self.metric = metric
         self.early_stopping = early_stopping
-        self.device = device
-        self.batch_size = args.batch_size
-        self.eval_k = args.eval_k
 
     def train(self, n_epochs):
-        self.start_time = time.time()
         self.model.init_model(self.args.sigma)
 
+        start_time = time.time()
+        checkpoint_dir = None
         train_losses, eval_losses = [], []
 
         for epoch in range(1, n_epochs + 1):
@@ -104,32 +67,31 @@ class Trainer(object):
                 print("Early stopped")
                 break
 
-        checkpoint = torch.load(checkpoint_dir)
-        self.model.load_state_dict(checkpoint["model"])
-        print(f"time: {time.time() - self.start_time:0.1f} sec")
+        if checkpoint_dir is not None:
+            checkpoint = torch.load(checkpoint_dir)
+            self.model.load_state_dict(checkpoint["model"])
+
+        print(f"time: {time.time() - start_time:0.1f} sec")
         return self.model, train_losses, eval_losses
 
     def train_step(self):
         self.model.train()
         losses = []
 
-        train_loader = DataLoader(self.train_data, self.batch_size, -1)
+        user_repr = self.model.init_hidden(self.args.batch_size)
+        session_repr = self.model.init_hidden(self.args.batch_size)
 
-        user_repr = self.model.init_hidden(self.batch_size)
-        session_repr = self.model.init_hidden(self.batch_size)
-
-        for inputs, outputs, session_start, user_start in tqdm(train_loader, miniters=1000):
+        for samples in tqdm(self.train_loader, miniters=1000):
             self.optimizer.zero_grad()
-            inputs = inputs.to(self.device)
-            outputs = outputs.to(self.device)
-
-            session_mask = self.model.get_mask(session_start, self.batch_size)
-            user_mask = self.model.get_mask(user_start, self.batch_size)
+            inputs = samples["inputs"]
+            targets = samples["targets"]
+            session_mask = samples["session_change"]
+            user_mask = samples["session_change"]
 
             score, next_session_repr, next_user_repr = self.model(
                 inputs, session_repr, session_mask, user_repr, user_mask
             )
-            sampled_score = score[:, outputs.view(-1)]
+            sampled_score = score[:, targets.view(-1)]
 
             loss = self.loss_function(sampled_score)
             loss.backward()
@@ -148,26 +110,23 @@ class Trainer(object):
         losses = []
         metrics = {}
 
-        valid_loader = DataLoader(self.valid_data, self.batch_size, -1)
-
-        user_repr = self.model.init_hidden(self.batch_size)
-        session_repr = self.model.init_hidden(self.batch_size)
+        user_repr = self.model.init_hidden(self.args.batch_size)
+        session_repr = self.model.init_hidden(self.args.batch_size)
 
         with torch.no_grad():
-            for inputs, outputs, session_start, user_start in tqdm(valid_loader, miniters=1000):
-                inputs = inputs.to(self.device)
-                outputs = outputs.to(self.device)
-
-                session_mask = self.model.get_mask(session_start, self.batch_size)
-                user_mask = self.model.get_mask(user_start, self.batch_size)
+            for samples in tqdm(self.valid_loader, miniters=1000):
+                inputs = samples["inputs"]
+                targets = samples["targets"]
+                session_mask = samples["session_change"]
+                user_mask = samples["session_change"]
 
                 score, session_repr, user_repr = self.model(
                     inputs, session_repr, session_mask, user_repr, user_mask
                 )
-                sampled_score = score[:, outputs.view(-1)]
+                sampled_score = score[:, targets.view(-1)]
 
                 loss = self.loss_function(sampled_score)
-                eval_metrics = evaluate(score, outputs, k=self.eval_k)
+                eval_metrics = self.metric(score, targets)
 
                 losses.append(loss.item())
 

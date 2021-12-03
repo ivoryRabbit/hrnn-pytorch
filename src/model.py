@@ -10,8 +10,6 @@ class HGRU4REC(nn.Module):
         input_size,
         output_size,
         hidden_dim,
-        hidden_act="tanh",
-        final_act="tanh",
         dropout_init=0.1,
         dropout_user=0.1,
         dropout_session=0.1,
@@ -23,8 +21,6 @@ class HGRU4REC(nn.Module):
         self.input_size = input_size
         self.output_size = output_size
         self.hidden_dim = hidden_dim
-        self.hidden_act = hidden_act
-        self.final_act = final_act
         self.dropout_init = dropout_init
         self.dropout_user = dropout_user
         self.dropout_session = dropout_session
@@ -33,12 +29,12 @@ class HGRU4REC(nn.Module):
         # layers
         self.u2s = nn.Sequential(
             nn.Linear(self.hidden_dim, self.hidden_dim),
-            self.get_activation(self.hidden_act),
+            nn.Tanh(),
             nn.Dropout(self.dropout_init)
         )
         self.s2o = nn.Sequential(
             nn.Linear(self.hidden_dim, self.output_size),
-            self.get_activation(self.final_act),
+            nn.Tanh(),
         )
         self.dropout_user_layer = nn.Dropout(self.dropout_user)
         self.dropout_session_layer = nn.Dropout(self.dropout_session)
@@ -48,7 +44,7 @@ class HGRU4REC(nn.Module):
 
         if self.fft_all:
             self.fft = nn.Linear(self.hidden_dim, self.output_size, bias=False)
-        self = self.to(self.device)
+        self = self.to(device)
 
     def forward(self, inputs, session_repr, session_mask, user_repr, user_mask):
         embedded = self.onehot_encode(inputs)
@@ -56,33 +52,26 @@ class HGRU4REC(nn.Module):
         # update user representative only when a new session updates
         user_repr_updt = self.user_gru(session_repr, user_repr)
         user_repr_updt = self.dropout_user_layer(user_repr_updt)
-        user_repr = session_mask * user_repr_updt + (
-                    1 - session_mask) * user_repr  # (batch_size, hidden_dim)
+        user_repr = session_mask * user_repr_updt + (1 - session_mask) * user_repr
 
         # reset user representative for new user
         user_repr = user_mask * self.mask_zeros(user_repr) + (1 - user_mask) * user_repr
 
         # initialize session representative when a new session starts
         session_repr_init = self.u2s(user_repr)
-        session_repr = session_mask * session_repr_init + (
-                    1 - session_mask) * session_repr  # (batch_size, hidden_dim)
+        session_repr = session_mask * session_repr_init + (1 - session_mask) * session_repr
 
         # reset session representative for new user
         session_repr = user_mask * self.mask_zeros(session_repr) + (1 - user_mask) * session_repr
         session_repr = self.session_gru(embedded, session_repr)
         session_repr = self.dropout_session_layer(session_repr)
 
-        score = self.s2o(session_repr) # (batch_size, output_size)
+        score = self.s2o(session_repr)
         return score, session_repr, user_repr
 
     def onehot_encode(self, inputs):
         encoded = one_hot(inputs, num_classes=self.input_size).float()
         return encoded.to(self.device)
-
-    def get_mask(self, mask_idx, batch_size):
-        mask = torch.zeros(batch_size, self.hidden_dim)
-        mask[mask_idx, :] = 1.0
-        return mask.to(self.device)
 
     def mask_zeros(self, repr):
         return torch.zeros_like(repr).to(self.device)
@@ -109,8 +98,6 @@ class HGRU4REC(nn.Module):
                 input_size=self.input_size,
                 output_size=self.output_size,
                 hidden_dim=self.hidden_dim,
-                hidden_act=self.hidden_act,
-                final_act=self.final_act,
                 dropout_init=self.dropout_init,
                 dropout_user=self.dropout_user,
                 dropout_session=self.dropout_session,
@@ -118,13 +105,3 @@ class HGRU4REC(nn.Module):
             )
         )
         torch.save(model_state, save_dir)
-
-    def get_activation(self, act_name):
-        if act_name == "tanh":
-            return nn.Tanh()
-        elif act_name == "relu":
-            return nn.ReLU()
-        elif act_name == "softmax":
-            return nn.Softmax()
-        elif act_name == "softmax_logit":
-            return nn.LogSoftmax()

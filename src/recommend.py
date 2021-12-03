@@ -3,10 +3,10 @@ import torch
 import pandas as pd
 import numpy as np
 
-from src.model import HGRU4REC
-from src.prediction import inference
-from src.coldstart import ColdStart
-from src.filter import Filter
+from .model import HGRU4REC
+from .prediction import inference
+from .coldstart import Bestseller
+from .filter import Filter
 
 
 class Recommend(object):
@@ -21,7 +21,7 @@ class Recommend(object):
         self.to_id_map = {idx: Id for Id, idx in self.item_df.values}
         self.precede_df = self._get_precede()
         self.bootstrapped_test_df = self._get_bootstrapped_test(bootstrap_len)
-        self.cold_start = ColdStart(self.precede_df)
+        self.cold_start = Bestseller(self.precede_df)
         self.filter = Filter(self.precede_df, self.item_df)
 
     def _load_model(self):

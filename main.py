@@ -1,7 +1,7 @@
 import sys
 from src.recommend import Recommend
 
-from setup import set_env
+from argparser import set_env
 
 args = set_env()
 model = Recommend()

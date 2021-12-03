@@ -1,12 +1,75 @@
 import numpy as np
 import torch
+from torch.utils.data import IterableDataset
+from abc import ABC, abstractmethod
+from typing import Dict, Any, List, Optional
+from pandas import DataFrame
+
+
+class Transform(ABC):
+    @abstractmethod
+    def __call__(self, samples: Dict[str, Any]) -> Dict[str, Any]:
+        pass
+
+
+class DenseIndexing(Transform):
+    def __init__(self, item_map_df: DataFrame):
+        self.item_map: Dict[Any, int] = self.refine_map_from(item_map_df)
+        self.indexer = np.vectorize(self.item_map.get)
+
+    @staticmethod
+    def refine_map_from(item_map: DataFrame) -> Dict[int, int]:
+        return {Id: idx for Id, idx in item_map[["item_id", "item_idx"]].values}
+
+    def __call__(self, samples):
+        inputs, targets = samples["inputs"], samples["targets"]
+
+        samples.update({
+            "inputs": self.indexer(inputs),
+            "targets": self.indexer(targets)
+        })
+        return samples
+
+
+class Masking(Transform):
+    def __init__(self):
+        self.batch_size = None
+
+    def get_mask(self, indices):
+        mask = np.zeros(shape=(self.batch_size, 1))
+        mask[indices, :] = 1.0
+        return mask
+
+    def __call__(self, samples):
+        self.batch_size = len(samples["inputs"])
+
+        session_change_idx = samples["session_change"]
+        user_change_idx = samples['user_change']
+
+        samples.update({
+            "session_change": self.get_mask(session_change_idx),
+            "user_change": self.get_mask(user_change_idx),
+        })
+        return samples
+
+
+class ToTensor(Transform):
+    def __init__(self, device):
+        self.device = device
+
+    def __call__(self, samples):
+        return {
+            "inputs": torch.LongTensor(samples["inputs"]).to(self.device),
+            "targets": torch.LongTensor(samples["targets"]).to(self.device),
+            "session_change": torch.FloatTensor(samples["session_change"]).to(self.device),
+            "user_change": torch.FloatTensor(samples["user_change"]).to(self.device),
+        }
 
 
 class Sampler(object):
-    def __init__(self, df, n_samples, item_key="item_id", sample_alpha=0.75, sample_store=10000):
+    def __init__(self, df, n_samples, sample_alpha=0.75, sample_store=10000):
         self.df = df
         self.n_samples = n_samples
-        self.item_key = item_key
         self.sample_alpha = sample_alpha  # 3/4
         self.sample_store = sample_store
         self.generate_size = sample_store // n_samples
@@ -46,138 +109,93 @@ class Sampler(object):
 
     @property
     def _pop(self):
-        """
-        Calculate the distribution P(w_i) of negative sampling
-        """
-        prob = self.df[self.item_key].value_counts() ** self.sample_alpha
+        """ Calculate the distribution P(w_i) of negative sampling """
+        prob = self.df["item_id"].value_counts() ** self.sample_alpha
         return prob.cumsum() / prob.sum()
 
 
-class Dataset(object):
-    def __init__(
-        self,
-        df,
-        item_map=None,
-        user_key="user_id",
-        session_key="session_id",
-        item_key="item_id",
-        time_key="timestamp",
-    ):
-        self.df = df
-        self.user_key = user_key
-        self.session_key = session_key
-        self.item_key = item_key
-        self.time_key = time_key
+class DataLoader(IterableDataset):
+    def __init__(self, args, df, transforms: Optional[List[Transform]] = None):
+        super(DataLoader).__init__()
+        self.df = df.sort_values(by=["user_id", "timestamp"])
+        self.batch_size = args.batch_size
+        self.neg_sampler = Sampler(df, args.n_samples)
+        self.transforms = transforms
 
-        # Add colummn item index to dataframe
-        self.item_map = self.refine_item_map(item_map)
-        self.attach_item_indices()
+        self.users = df["user_id"].unique()
+        self.sessions = df["session_id"].unique()
 
-        # Sort dataframe
-        self.df.sort_values([user_key, session_key, time_key], inplace=True)
-        self.df.reset_index(drop=True, inplace=True)
+        self.session_offset = np.r_[0, self.df.groupby("session_id", sort=False).size().cumsum().values]
+        self.num_session_for_user = np.r_[0, self.df.groupby("user_id", sort=False)["session_id"].nunique().cumsum().values]
+        self.user_offset = self.session_offset[self.num_session_for_user]
 
-    def refine_item_map(self, item_map):
-        if item_map is None:
-            item_map = {item_id: idx for idx, item_id in enumerate(self.item_ids)}
-        return item_map
-
-    def attach_item_indices(self):
-        self.df = self.df.assign(item_idx=lambda df: df[self.item_key].map(self.item_map))
-
-    @property
-    def session_offsets(self):
-        return np.r_[0, self.df.groupby(self.session_key, sort=False).size().cumsum().values]
-
-    @property
-    def num_sessions_each_user(self):
-        return np.r_[0, self.df.groupby(self.user_key, sort=False)[self.session_key].nunique().cumsum().values]
-
-    @property
-    def user_idx_arr(self):
-        return np.arange(self.df[self.user_key].nunique())
-
-    @property
-    def session_idx_arr(self):
-        return np.arange(self.df[self.session_key].nunique())
-
-    @property
-    def item_ids(self):
-        return self.df[self.item_key].unique()
-
-
-class DataLoader(object):
-    def __init__(self, dataset: Dataset, batch_size=50, n_samples=-1):
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.n_samples = n_samples
+        self.user_idx_arr = np.arange(len(self.users))
+        self.session_idx_arr = np.arange(len(self.sessions))
 
     def __iter__(self):
-        """
-        Yields:
-        """
-        df = self.dataset.df
-        neg_sampler = Sampler(df, self.n_samples)
+        batch_size = min(self.batch_size, len(self.users))
 
-        session_offsets = self.dataset.session_offsets
-        num_sessions_each_user = self.dataset.num_sessions_each_user
-        user_offsets = session_offsets[num_sessions_each_user]
+        user_iter = np.arange(batch_size)
+        max_user_iter = np.max(user_iter)
 
-        user_idx_arr = self.dataset.user_idx_arr
-        user_iters = np.arange(self.batch_size)
-        user_max_iter = user_iters.max()
+        user_start = self.user_offset[self.user_idx_arr[user_iter]]
+        user_end = self.user_offset[self.user_idx_arr[user_iter] + 1]
 
-        user_start = user_offsets[user_idx_arr[user_iters]]
-        user_end = user_offsets[user_idx_arr[user_iters] + 1]
+        session_iter = self.num_session_for_user[user_iter]
 
-        session_iters = num_sessions_each_user[user_iters]
+        session_start = self.session_offset[session_iter]
+        session_end = self.session_offset[session_iter + 1]
 
-        session_start = session_offsets[session_iters]
-        session_end = session_offsets[session_iters + 1]
-
-        session_change_idx = []
-        user_change_idx = []
+        session_change = []
+        user_change = []
         finished = False
 
         while not finished:
-            session_interval = (session_end - session_start).min()
+            min_session_interval = np.min(session_end - session_start)
 
-            for i in range(session_interval - 1):
-                input_idx = df["item_idx"].values[session_start + i]
-                output_idx = df["item_idx"].values[session_start + i + 1]
+            for i in range(min_session_interval-1):
+                inputs = self.df["item_id"].values[session_start+i]
+                targets = self.df["item_id"].values[session_start+i+1]
 
-                if self.n_samples > 0:
-                    output_idx = np.hstack([output_idx, next(neg_sampler)])
+                # if self.n_samples > 0:
+                #     targets = np.hstack([targets, next(self.neg_sampler)])
 
-                input = torch.LongTensor(input_idx)
-                output = torch.LongTensor(output_idx)
+                samples = {
+                    "inputs": inputs,
+                    "targets": targets,
+                    "session_change": session_change,
+                    "user_change": user_change,
+                }
 
-                yield input, output, session_change_idx, user_change_idx
+                if isinstance(self.transforms, list):
+                    for transform in self.transforms:
+                        samples = transform(samples)
 
-            session_start += session_interval - 1
-            session_change_idx = np.arange(len(session_iters))[(session_end - session_start) <= 1]
+                yield samples
 
-            for idx in session_change_idx:
-                session_iters[idx] += 1
-                if session_iters[idx] + 1 >= len(session_offsets):
+            session_start += min_session_interval - 1
+            session_change = np.arange(batch_size)[session_end - session_start <= 1]
+
+            for idx in session_change:
+                if session_iter[idx] + 1 >= len(self.sessions):
                     finished = True
                     break
+                session_iter[idx] += 1
 
-                session_start[idx] = session_offsets[session_iters[idx]]
-                session_end[idx] = session_offsets[session_iters[idx] + 1]
+                session_start[idx] = self.session_offset[session_iter[idx]]
+                session_end[idx] = self.session_offset[session_iter[idx] + 1]
 
-            user_change_idx = np.arange(len(user_iters))[(user_end - session_start <= 0)]
+            user_change_idx = np.arange(batch_size)[user_end - session_start <= 0]
 
             for idx in user_change_idx:
-                user_max_iter += 1
-                if user_max_iter + 1 >= len(user_offsets):
-                    finished = True
-                    break
+                if max_user_iter + 1 >= len(self.users):
+                    continue
+                max_user_iter += 1
 
-                user_iters[idx] = user_max_iter
-                user_start[idx] = user_offsets[user_max_iter]
-                user_end[idx] = user_offsets[user_max_iter + 1]
+                user_iter[idx] = max_user_iter
+                user_start[idx] = self.user_offset[max_user_iter]
+                user_end[idx] = self.user_offset[max_user_iter + 1]
 
-                session_iters[idx] = num_sessions_each_user[user_max_iter]
-                session_start[idx] = session_offsets[session_iters[idx]]
-                session_end[idx] = session_offsets[session_iters[idx] + 1]
+                session_iter[idx] = self.num_session_for_user[max_user_iter]
+                session_start[idx] = self.session_offset[session_iter[idx]]
+                session_end[idx] = self.session_offset[session_iter[idx] + 1]
