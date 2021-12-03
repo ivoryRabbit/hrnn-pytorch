@@ -68,9 +68,9 @@ def set_env(data_root="data", save_root="trained", checkpoint_root="checkpoint")
         os.environ["item_meta_dir"] = os.path.join(data_root, args.item_meta)
 
     # data
-    os.environ["train_dir"] = os.path.join(data_root, "train_data.hdf")
-    os.environ["valid_dir"] = os.path.join(data_root, "valid_data.hdf")
-    os.environ["test_dir"] = os.path.join(data_root, "test_data.hdf")
+    os.environ["train_dir"] = os.path.join(data_root, "train_data.csv")
+    os.environ["valid_dir"] = os.path.join(data_root, "valid_data.csv")
+    os.environ["test_dir"] = os.path.join(data_root, "test_data.csv")
     os.environ["item_dir"] = os.path.join(data_root, "item_for_train.csv")
 
     # pre-trained
