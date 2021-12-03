@@ -12,3 +12,6 @@ checkpoint/*.pt
 
 # mac
 .DS_Store
+
+# files
+data/*_data.csv
