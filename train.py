@@ -57,8 +57,7 @@ if __name__ == "__main__":
     early_stopping = EarlyStopping(args, checkpoint_dir=os.environ["checkpoint_dir"])
 
     trainer = Trainer(
-        args,
-        model,
+        args, model,
         train_loader=train_loader,
         valid_loader=valid_loader,
         optimizer=optimizer,

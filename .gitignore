@@ -12,3 +12,4 @@ venv/
 # files
 data/*.csv
 checkpoint/*.pt
+trained/*.pt
