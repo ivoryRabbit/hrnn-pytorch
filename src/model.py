@@ -47,12 +47,12 @@ class HGRU4REC(nn.Module):
         self = self.to(device)
 
     def forward(self, inputs, session_repr, session_mask, user_repr, user_mask):
-        embedded = self.onehot_encode(inputs)
+        embedded = self.one_hot_encode(inputs)
 
         # update user representative only when a new session updates
-        user_repr_updt = self.user_gru(session_repr, user_repr)
-        user_repr_updt = self.dropout_user_layer(user_repr_updt)
-        user_repr = session_mask * user_repr_updt + (1 - session_mask) * user_repr
+        user_repr_update = self.user_gru(session_repr, user_repr)
+        user_repr_update = self.dropout_user_layer(user_repr_update)
+        user_repr = session_mask * user_repr_update + (1 - session_mask) * user_repr
 
         # reset user representative for new user
         user_repr = user_mask * self.mask_zeros(user_repr) + (1 - user_mask) * user_repr
@@ -69,7 +69,7 @@ class HGRU4REC(nn.Module):
         score = self.s2o(session_repr)
         return score, session_repr, user_repr
 
-    def onehot_encode(self, inputs):
+    def one_hot_encode(self, inputs):
         encoded = one_hot(inputs, num_classes=self.input_size).float()
         return encoded.to(self.device)
 

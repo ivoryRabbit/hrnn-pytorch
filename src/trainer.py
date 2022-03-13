@@ -1,6 +1,12 @@
 import numpy as np
-import torch
 import time
+import torch
+from torch import nn
+from src.dataset import DataLoader
+from src.optimizer import Optimizer
+from src.loss_function import LossFunction
+from src.metric import Metric
+from src.callback import EarlyStopping
 from tqdm import tqdm
 
 
@@ -8,13 +14,13 @@ class Trainer(object):
     def __init__(
         self,
         args,
-        model,
-        train_loader,
-        valid_loader,
-        optimizer,
-        loss_function,
-        metric,
-        early_stopping,
+        model: nn.Module,
+        train_loader: DataLoader,
+        valid_loader: DataLoader,
+        optimizer: Optimizer,
+        loss_function: LossFunction,
+        metric: Metric,
+        early_stopping: EarlyStopping,
     ):
         self.args = args
         self.model = model
@@ -81,12 +87,12 @@ class Trainer(object):
         user_repr = self.model.init_hidden(self.args.batch_size)
         session_repr = self.model.init_hidden(self.args.batch_size)
 
-        for samples in tqdm(self.train_loader, miniters=1000):
+        for sample in tqdm(self.train_loader, miniters=1000):
             self.optimizer.zero_grad()
-            inputs = samples["inputs"]
-            targets = samples["targets"]
-            session_mask = samples["session_change"]
-            user_mask = samples["session_change"]
+            inputs = sample["inputs"]
+            targets = sample["targets"]
+            session_mask = sample["session_change"]
+            user_mask = sample["session_change"]
 
             score, next_session_repr, next_user_repr = self.model(
                 inputs, session_repr, session_mask, user_repr, user_mask
@@ -114,11 +120,11 @@ class Trainer(object):
         session_repr = self.model.init_hidden(self.args.batch_size)
 
         with torch.no_grad():
-            for samples in tqdm(self.valid_loader, miniters=1000):
-                inputs = samples["inputs"]
-                targets = samples["targets"]
-                session_mask = samples["session_change"]
-                user_mask = samples["session_change"]
+            for sample in tqdm(self.valid_loader, miniters=1000):
+                inputs = sample["inputs"]
+                targets = sample["targets"]
+                session_mask = sample["session_change"]
+                user_mask = sample["session_change"]
 
                 score, session_repr, user_repr = self.model(
                     inputs, session_repr, session_mask, user_repr, user_mask

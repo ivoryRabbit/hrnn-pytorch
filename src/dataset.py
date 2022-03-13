@@ -21,48 +21,47 @@ class DenseIndexing(Transform):
     def refine_map_from(item_map: DataFrame) -> Dict[int, int]:
         return {Id: idx for Id, idx in item_map[["item_id", "item_idx"]].values}
 
-    def __call__(self, samples):
-        inputs, targets = samples["inputs"], samples["targets"]
+    def __call__(self, sample):
+        inputs, targets = sample["inputs"], sample["targets"]
 
-        samples.update({
+        sample.update({
             "inputs": self.indexer(inputs),
-            "targets": self.indexer(targets)
+            "targets": self.indexer(targets),
         })
-        return samples
+        return sample
 
 
 class Masking(Transform):
-    def __init__(self):
-        self.batch_size = None
+    batch_size: int
 
     def get_mask(self, indices):
         mask = np.zeros(shape=(self.batch_size, 1))
         mask[indices, :] = 1.0
         return mask
 
-    def __call__(self, samples):
-        self.batch_size = len(samples["inputs"])
+    def __call__(self, sample):
+        self.batch_size = len(sample["inputs"])
 
-        session_change_idx = samples["session_change"]
-        user_change_idx = samples['user_change']
+        session_change_idx = sample["session_change"]
+        user_change_idx = sample['user_change']
 
-        samples.update({
+        sample.update({
             "session_change": self.get_mask(session_change_idx),
             "user_change": self.get_mask(user_change_idx),
         })
-        return samples
+        return sample
 
 
 class ToTensor(Transform):
     def __init__(self, device):
         self.device = device
 
-    def __call__(self, samples):
+    def __call__(self, sample):
         return {
-            "inputs": torch.LongTensor(samples["inputs"]).to(self.device),
-            "targets": torch.LongTensor(samples["targets"]).to(self.device),
-            "session_change": torch.FloatTensor(samples["session_change"]).to(self.device),
-            "user_change": torch.FloatTensor(samples["user_change"]).to(self.device),
+            "inputs": torch.LongTensor(sample["inputs"]).to(self.device),
+            "targets": torch.LongTensor(sample["targets"]).to(self.device),
+            "session_change": torch.FloatTensor(sample["session_change"]).to(self.device),
+            "user_change": torch.FloatTensor(sample["user_change"]).to(self.device),
         }
 
 
@@ -116,8 +115,7 @@ class Sampler(object):
 
 class DataLoader(IterableDataset):
     def __init__(self, args, df, transforms: Optional[List[Transform]] = None):
-        super(DataLoader).__init__()
-        self.df = df.sort_values(by=["user_id", "timestamp"])
+        self.df = df.sort_values(by=["user_id", "session_id", "timestamp"])
         self.batch_size = args.batch_size
         self.neg_sampler = Sampler(df, args.n_samples)
         self.transforms = transforms
@@ -167,10 +165,9 @@ class DataLoader(IterableDataset):
                     "user_change": user_change,
                 }
 
-                if isinstance(self.transforms, list):
+                if self.transforms is not None:
                     for transform in self.transforms:
                         samples = transform(samples)
-
                 yield samples
 
             session_start += min_session_interval - 1

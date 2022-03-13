@@ -1,7 +1,7 @@
 import torch
 
 
-class Metric:
+class Metric(object):
     def __init__(self, device, eval_k):
         self.device = device
         self.eval_k = eval_k
