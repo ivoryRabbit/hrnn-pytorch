@@ -63,10 +63,9 @@ class TOP1Loss(nn.Module):
 
     @staticmethod
     def forward(logit: Tensor) -> Tensor:
-        batch_size = logit.size(0)
-        bpr = torch.mean(torch.sigmoid(logit - logit.diag().expand_as(logit).T), axis=1)
-        l2 = torch.mean(torch.sigmoid(logit ** 2), axis=1)
-        loss = torch.mean(bpr + l2 -torch.sigmoid(logit.diag() ** 2) / batch_size)
+        bpr = torch.mean(torch.sigmoid(logit - logit.diag().expand_as(logit).T), dim=1)
+        l2 = torch.mean(torch.sigmoid(logit ** 2), dim=1)
+        loss = torch.mean(bpr + l2)
         return loss
 
 

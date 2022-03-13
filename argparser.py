@@ -48,7 +48,7 @@ def get_args():
     parser.add_argument("--weight_decay", default=0.0, type=float)
     parser.add_argument("--momentum", default=0.1, type=float)
     parser.add_argument("--eps", default=1e-6, type=float)
-    parser.add_argument("--patience", default=5, type=int, help="early stopping patience")
+    parser.add_argument("--patience", default=3, type=int, help="early stopping patience")
     parser.add_argument("--delta", default=0.0, type=float, help="early stopping threshold")
     parser.add_argument("--verbose", default=True, type=bool)
 
