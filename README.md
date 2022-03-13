@@ -38,4 +38,5 @@ python3 main.py --user_id 2 --eval_k 10
 ```
 
 ## Reference
-- [original code for the paper with Theano](https://github.com/mquad/hgru4rec)
+- [HGRU4REC-Theano](https://github.com/mquad/hgru4rec)
+- [GRU4REC-PyTorch](https://github.com/hungthanhpham94/GRU4REC-pytorch)
