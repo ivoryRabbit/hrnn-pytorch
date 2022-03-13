@@ -44,7 +44,7 @@ def get_args():
                         help="Adagrad, Adam, RMSProp, SGD")
     parser.add_argument("--n_epochs", default=10, type=int)
     parser.add_argument("--batch_size", default=50, type=int)
-    parser.add_argument("--lr", default=0.05, type=float, help="learning rate")
+    parser.add_argument("--lr", default=0.01, type=float, help="learning rate")
     parser.add_argument("--weight_decay", default=0.0, type=float)
     parser.add_argument("--momentum", default=0.1, type=float)
     parser.add_argument("--eps", default=1e-6, type=float)
