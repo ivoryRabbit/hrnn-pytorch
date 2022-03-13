@@ -17,19 +17,24 @@ git clone git@github.com:ivoryRabbit/hrnn-pytorch.git
 pip install -r requirements.txt
 ```
 
+## Load Data
+```bash
+python3 load_data.py
+```
+
 ## Preprocess
 ```bash
-python preprocess.py --interactioin ml-1m.csv
+python3 preprocess.py --interaction ml-1m.csv
 ```
 
 ## Training
 ```bash
-python train.py --n_epochs 10 --batch_size 50
+python3 train.py --n_epochs 10 --batch_size 50
 ```
 
 ## Recommend
 ```bash
-python main.py --user_id 2 --eval_k 10
+python3 main.py --user_id 2 --eval_k 10
 ```
 
 ## Reference

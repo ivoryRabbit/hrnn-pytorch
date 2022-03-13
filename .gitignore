@@ -6,12 +6,9 @@ venv/
 # IDE files
 .idea
 
-# preprocessed data
-data/*.hdf
-checkpoint/*.pt
-
 # mac
 .DS_Store
 
 # files
-data/*_data.csv
+data/*.csv
+checkpoint/*.pt
