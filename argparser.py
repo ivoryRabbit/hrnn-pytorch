@@ -15,8 +15,9 @@ def get_args():
 
     # preprocess
     parser.add_argument("--min_session_interval", default=60*60, type=int, help="1hour=60*60sec")
-    parser.add_argument("--min_item_pop", default=10, type=int)
-    parser.add_argument("--min_session_len", default=5, type=int)
+    parser.add_argument("--min_item_pop", default=5, type=int)
+    parser.add_argument("--min_session_size", default=3, type=int)
+    parser.add_argument("--min_num_sessions", default=5, type=int)
     parser.add_argument("--session_per_user", default=(5, 99), type=Tuple[int])
     parser.add_argument("--leave_out_session", default=1, type=int)
 
@@ -68,10 +69,11 @@ def set_env(data_root="data", save_root="trained", checkpoint_root="checkpoint")
         os.environ["item_meta_dir"] = os.path.join(data_root, args.item_meta)
 
     # data
+    os.environ["inter_dir"] = os.path.join(data_root, "inter_data.csv")
     os.environ["train_dir"] = os.path.join(data_root, "train_data.csv")
     os.environ["valid_dir"] = os.path.join(data_root, "valid_data.csv")
     os.environ["test_dir"] = os.path.join(data_root, "test_data.csv")
-    os.environ["item_dir"] = os.path.join(data_root, "item_for_train.csv")
+    os.environ["item_dir"] = os.path.join(data_root, "item_data.csv")
 
     # pre-trained
     os.environ["save_dir"] = os.path.join(save_root, args.model_name)
