@@ -1,20 +1,21 @@
 import numpy as np
 import time
 import torch
-from torch import nn
+from tqdm import tqdm
+
 from src.dataset import DataLoader
 from src.optimizer import Optimizer
 from src.loss_function import LossFunction
 from src.metric import Metric
+from src.model import HGRU4REC
 from src.callback import EarlyStopping
-from tqdm import tqdm
 
 
 class Trainer(object):
     def __init__(
         self,
         args,
-        model: nn.Module,
+        model: HGRU4REC,
         train_loader: DataLoader,
         valid_loader: DataLoader,
         optimizer: Optimizer,

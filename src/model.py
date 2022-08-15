@@ -44,7 +44,7 @@ class HGRU4REC(nn.Module):
 
         if self.fft_all:
             self.fft = nn.Linear(self.hidden_dim, self.output_size, bias=False)
-        self = self.to(device)
+        self.to(device)
 
     def forward(self, inputs, session_repr, session_mask, user_repr, user_mask):
         embedded = self.one_hot_encode(inputs)
